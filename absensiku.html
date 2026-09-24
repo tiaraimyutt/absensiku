@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absensiku</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #eaf4ff, #f8fbff);
+      color: #17324d;
+    }
+    .container { max-width: 900px; margin: auto; padding: 24px; }
+    .header {
+      background: linear-gradient(135deg, #1769aa, #2196f3);
+      color: white;
+      padding: 28px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(23,105,170,.2);
+      margin-bottom: 20px;
+    }
+    .header h1 { margin: 0 0 8px; font-size: 30px; }
+    .header p { margin: 0; opacity: .9; }
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 20px;
+      box-shadow: 0 6px 22px rgba(0,0,0,.07);
+    }
+    label { display:block; margin: 12px 0 6px; font-weight: bold; }
+    input, select, button {
+      width: 100%;
+      padding: 13px;
+      border-radius: 10px;
+      border: 1px solid #ccd8e3;
+      font-size: 15px;
+    }
+    button {
+      border: none;
+      background: #1769aa;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+    button:hover { background: #12578d; }
+    .danger { background: #d9534f; }
+    .danger:hover { background: #b93f3b; }
+    .table-wrap { overflow-x: auto; }
+    table { width:100%; border-collapse: collapse; min-width: 650px; }
+    th, td { padding: 11px; border-bottom: 1px solid #e5ebf0; text-align:left; }
+    th { background: #eef7ff; }
+    .status {
+      display:inline-block; padding:5px 9px; border-radius:20px;
+      background:#e8f5e9; color:#2e7d32; font-weight:bold;
+    }
+    .empty { text-align:center; color:#718096; padding:25px; }
+    .clock { margin-top: 10px; font-size: 18px; font-weight:bold; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .actions button { flex:1; min-width:180px; }
+    @media(max-width:600px) {
+      .container { padding: 14px; }
+      .header h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <section class="header">
+    <h1>📋 Absensiku</h1>
+    <p>Aplikasi absensi digital sederhana</p>
+    <div class="clock" id="clock"></div>
+  </section>
+
+  <section class="card">
+    <h2>Input Absensi</h2>
+
+    <label for="nama">Nama Siswa</label>
+    <input id="nama" type="text" placeholder="Masukkan nama lengkap">
+
+    <label for="kelas">Kelas</label>
+    <input id="kelas" type="text" placeholder="Contoh: XII Informatika 1">
+
+    <label for="status">Keterangan</label>
+    <select id="status">
+      <option value="Hadir">Hadir</option>
+      <option value="Izin">Izin</option>
+      <option value="Sakit">Sakit</option>
+      <option value="Alpa">Alpa</option>
+    </select>
+
+    <button onclick="tambahAbsensi()">Simpan Absensi</button>
+  </section>
+
+  <section class="card">
+    <h2>Riwayat Absensi</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Tanggal</th>
+            <th>Jam</th>
+            <th>Nama</th>
+            <th>Kelas</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="dataAbsensi"></tbody>
+      </table>
+    </div>
+
+    <div class="actions">
+      <button onclick="exportCSV()">📥 Export CSV</button>
+      <button class="danger" onclick="hapusSemua()">🗑️ Hapus Semua</button>
+    </div>
+  </section>
+</div>
+
+<script>
+  let absensi = JSON.parse(localStorage.getItem("absensiku")) || [];
+
+  function updateClock() {
+    const now = new Date();
+    const tanggal = now.toLocaleDateString("id-ID", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric"
+    });
+    const jam = now.toLocaleTimeString("id-ID");
+    document.getElementById("clock").textContent = tanggal + " • " + jam;
+  }
+
+  function tambahAbsensi() {
+    const nama = document.getElementById("nama").value.trim();
+    const kelas = document.getElementById("kelas").value.trim();
+    const status = document.getElementById("status").value;
+
+    if (!nama || !kelas) {
+      alert("Nama dan kelas harus diisi.");
+      return;
+    }
+
+    const now = new Date();
+    absensi.push({
+      tanggal: now.toLocaleDateString("id-ID"),
+      jam: now.toLocaleTimeString("id-ID"),
+      nama, kelas, status
+    });
+
+    localStorage.setItem("absensiku", JSON.stringify(absensi));
+    document.getElementById("nama").value = "";
+    render();
+    alert("Absensi berhasil disimpan!");
+  }
+
+  function render() {
+    const tbody = document.getElementById("dataAbsensi");
+
+    if (absensi.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">Belum ada data absensi.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = absensi.map((a, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${a.tanggal}</td>
+        <td>${a.jam}</td>
+        <td>${escapeHTML(a.nama)}</td>
+        <td>${escapeHTML(a.kelas)}</td>
+        <td><span class="status">${a.status}</span></td>
+      </tr>
+    `).join("");
+  }
+
+  function escapeHTML(text) {
+    return text.replace(/[&<>"']/g, m => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+    }[m]));
+  }
+
+  function exportCSV() {
+    if (!absensi.length) {
+      alert("Belum ada data untuk diekspor.");
+      return;
+    }
+
+    const rows = [
+      ["No", "Tanggal", "Jam", "Nama", "Kelas", "Status"],
+      ...absensi.map((a, i) => [i+1, a.tanggal, a.jam, a.nama, a.kelas, a.status])
+    ];
+
+    const csv = rows.map(row =>
+      row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
+    ).join("\\n");
+
+    const blob = new Blob(["\\ufeff" + csv], {type: "text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "absensiku.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function hapusSemua() {
+    if (confirm("Yakin ingin menghapus semua data absensi?")) {
+      absensi = [];
+      localStorage.removeItem("absensiku");
+      render();
+    }
+  }
+
+  setInterval(updateClock, 1000);
+  updateClock();
+  render();
+</script>
+</body>
+</html>
